@@ -9,6 +9,9 @@ async function processAccount(account, mode) {
   log(`🔄 Starting process for account: ${account.id}`)
   const state = await loadState(account.id)
 
+  if (!state.likedPosts) state.likedPosts = {}
+  if (!state.caughtUp) state.caughtUp = {}
+
   let totalLikedThisRun = 0
   const browser = await chromium.launch({ headless: true })
   
