@@ -2,7 +2,7 @@ name: Instagram Auto Liker
 
 on:
   schedule:
-    - cron: '0 6,14,22 * * *'
+    - cron: '0 6,12,18 * * *'
     - cron: '0 * * * *'
   workflow_dispatch:
     inputs:
@@ -32,36 +32,19 @@ jobs:
           AUTH: ${{ secrets.AUTH_IG_1 }}
         run: echo "$AUTH" > auth_ig_1.json
 
-      - name: Create auth_ig_2.json
-        env:
-          AUTH: ${{ secrets.AUTH_IG_2 }}
-        run: echo "$AUTH" > auth_ig_2.json
-
-      - name: Set MODE for cron schedule
-        if: github.event_name == 'schedule'
+      - name: Determine RUN_MODE
         run: |
-          HOUR=$(date -u +%H)
-          if [ "$HOUR" = "06" ] || [ "$HOUR" = "14" ] || [ "$HOUR" = "22" ]; then
-            echo "MODE=catchup" >> $GITHUB_ENV
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "RUN_MODE=${{ github.event.inputs.mode }}" >> $GITHUB_ENV
           else
-            echo "MODE=maintenance" >> $GITHUB_ENV
+            HOUR=$(date -u +%H)
+            case "$HOUR" in
+              06|12|18) echo "RUN_MODE=catchup" >> $GITHUB_ENV ;;
+              *) echo "RUN_MODE=maintenance" >> $GITHUB_ENV ;;
+            esac
           fi
 
-      - name: Set MODE from manual input
-        if: github.event_name == 'workflow_dispatch'
-        run: echo "MODE=${{ github.event.inputs.mode }}" >> $GITHUB_ENV
-
-      - name: Run Bot - Account 1
-        run: node src/index.js --account=ig_account_1
-
-      - name: Run Bot - Account 2
-        run: node src/index.js --account=ig_account_2
-
-      - name: Save State & Commit
-        if: always()
-        run: |
-          git config --global user.name "GitHub Action Bot"
-          git config --global user.email "bot@example.com"
-          git add 'db_*.json' 'auth_ig_*.json'
-          git diff --quiet && git diff --staged --quiet || git commit -m "Update bot state"
-          git push
+      - name: Run Bot
+        run: node src/index.js --account=ig_account_1 --mode=$RUN_MODE
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}

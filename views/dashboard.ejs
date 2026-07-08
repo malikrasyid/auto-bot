@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auto Bot Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      padding: 2rem;
+    }
+    h1 { margin-bottom: 1.5rem; font-size: 1.75rem; color: #58a6ff }
+    .account-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .account-card h2 { color: #f0f6fc; margin-bottom: 1rem; font-size: 1.25rem }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.625rem 0.75rem;
+      border-bottom: 1px solid #21262d;
+    }
+    th { color: #8b949e; font-weight: 600; text-transform: uppercase; font-size: 0.75rem }
+    tr:hover td { background: #1c2128 }
+    .status-caught-up { color: #3fb950 }
+    .status-catching-up { color: #d29922 }
+    .post-link {
+      color: #58a6ff;
+      text-decoration: none;
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 0.8125rem;
+    }
+    .post-link:hover { text-decoration: underline }
+    .no-data { color: #484f58; font-style: italic }
+  </style>
+</head>
+<body>
+  <h1>Auto Bot Dashboard</h1>
+  <% if (accounts.length === 0) { %>
+    <p class="no-data">No accounts found in the database.</p>
+  <% } %>
+  <% for (const account of accounts) { %>
+    <div class="account-card">
+      <h2><%= account._id %></h2>
+      <% const targets = Object.keys(account.likedPosts || {}) %>
+      <% if (targets.length === 0) { %>
+        <p class="no-data">No targets configured.</p>
+      <% } else { %>
+        <table>
+          <thead>
+            <tr>
+              <th>Target</th>
+              <th>Status</th>
+              <th>Liked</th>
+              <th>Last 5 Posts</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% for (const target of targets) { %>
+              <% const liked = account.likedPosts[target] || [] %>
+              <% const caughtUp = account.caughtUp && account.caughtUp[target] %>
+              <tr>
+                <td>@<%= target %></td>
+                <td>
+                  <% if (caughtUp) { %>
+                    <span class="status-caught-up">✅ Caught Up</span>
+                  <% } else { %>
+                    <span class="status-catching-up">⏳ Catching Up</span>
+                  <% } %>
+                </td>
+                <td><%= liked.length %></td>
+                <td>
+                  <% const recent = liked.slice(-5).reverse() %>
+                  <% if (recent.length === 0) { %>
+                    <span class="no-data">—</span>
+                  <% } else { %>
+                    <% for (let i = 0; i < recent.length; i++) { %>
+                      <a class="post-link" href="https://instagram.com/p/<%= recent[i] %>/" target="_blank" rel="noopener"><%= recent[i] %></a><%= i < recent.length - 1 ? ', ' : '' %>
+                    <% } %>
+                  <% } %>
+                </td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      <% } %>
+    </div>
+  <% } %>
+</body>
+</html>

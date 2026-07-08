@@ -1,26 +1,55 @@
-const fs = require('fs')
-const path = require('path')
+const { MongoClient } = require('mongodb')
 
-function loadState(filename) {
-  const filePath = path.join(__dirname, '..', filename)
+let client = null
+let db = null
+const DB_NAME = 'auto_liker'
+const COLLECTION_NAME = 'states'
+
+async function getMongoClient() {
+  if (!client) {
+    const uri = process.env.MONGO_URI
+    if (!uri) {
+      throw new Error('MONGO_URI environment variable is not set')
+    }
+    client = new MongoClient(uri)
+    await client.connect()
+    db = client.db(DB_NAME)
+  }
+  return client
+}
+
+async function getStateCollection() {
+  await getMongoClient()
+  return db.collection(COLLECTION_NAME)
+}
+
+async function loadState(accountId) {
   try {
-    if (fs.existsSync(filePath)) {
-      const data = fs.readFileSync(filePath, 'utf8')
-      return JSON.parse(data)
+    const collection = await getStateCollection()
+    const doc = await collection.findOne({ _id: accountId })
+    if (doc) {
+      return {
+        likedPosts: doc.likedPosts || {},
+        caughtUp: doc.caughtUp || {}
+      }
     }
   } catch (err) {
-    console.error('Error reading state file, starting fresh.', err)
+    console.error('Error loading state from MongoDB:', err)
   }
-  return {}
+  return { likedPosts: {}, caughtUp: {} }
 }
 
-function saveState(filename, data) {
-  const filePath = path.join(__dirname, '..', filename)
+async function saveState(accountId, stateData) {
   try {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2))
+    const collection = await getStateCollection()
+    await collection.updateOne(
+      { _id: accountId },
+      { $set: { likedPosts: stateData.likedPosts, caughtUp: stateData.caughtUp } },
+      { upsert: true }
+    )
   } catch (err) {
-    console.error('Error saving state file!', err)
+    console.error('Error saving state to MongoDB:', err)
   }
 }
 
-module.exports = { loadState, saveState }
+module.exports = { loadState, saveState, getMongoClient }

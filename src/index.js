@@ -1,18 +1,13 @@
+require('dotenv').config()
+
 const { chromium } = require('playwright')
 const config = require('./config')
-const { loadState, saveState } = require('./state')
+const { loadState, saveState, getMongoClient } = require('./state')
 const { randomDelay, log } = require('./utils')
 
 async function processAccount(account, mode) {
   log(`🔄 Starting process for account: ${account.id}`)
-  const state = loadState(account.stateFile)
-
-  if (!state[account.id]) {
-    state[account.id] = { likedPosts: {}, caughtUp: {} }
-  }
-
-  if (!state[account.id].likedPosts) state[account.id].likedPosts = {}
-  if (!state[account.id].caughtUp) state[account.id].caughtUp = {}
+  const state = await loadState(account.id)
 
   let totalLikedThisRun = 0
   const browser = await chromium.launch({ headless: true })
@@ -27,10 +22,10 @@ async function processAccount(account, mode) {
         break
       }
 
-      if (!state[account.id].likedPosts[target]) state[account.id].likedPosts[target] = []
-      if (state[account.id].caughtUp[target] === undefined) state[account.id].caughtUp[target] = false
+      if (!state.likedPosts[target]) state.likedPosts[target] = []
+      if (state.caughtUp[target] === undefined) state.caughtUp[target] = false
 
-      const isCaughtUp = state[account.id].caughtUp[target]
+      const isCaughtUp = state.caughtUp[target]
       log(`👀 [${account.id}] Checking profile: @${target} (${isCaughtUp ? 'maintenance' : 'catch-up'} mode)`)
 
       if (mode === 'catchup' && isCaughtUp) {
@@ -61,7 +56,7 @@ async function processAccount(account, mode) {
               const href = await link.getAttribute('href')
               const match = href.match(/\/(p|reel)\/([^/]+)/)
               if (!match) continue
-              if (!state[account.id].likedPosts[target].includes(match[2])) {
+              if (!state.likedPosts[target].includes(match[2])) {
                 found = true
                 break
               }
@@ -111,7 +106,7 @@ async function processAccount(account, mode) {
           if (!match) continue
           const postId = match[2]
 
-          if (state[account.id].likedPosts[target].includes(postId)) continue
+          if (state.likedPosts[target].includes(postId)) continue
 
           try {
             await link.click()
@@ -127,8 +122,8 @@ async function processAccount(account, mode) {
               log(`ℹ️ [${account.id}] Already visually liked: ${postId}`)
             }
 
-            state[account.id].likedPosts[target].push(postId)
-            saveState(account.stateFile, state)
+            state.likedPosts[target].push(postId)
+            await saveState(account.id, state)
             await randomDelay()
 
             await page.keyboard.press('Escape')
@@ -142,8 +137,8 @@ async function processAccount(account, mode) {
 
         // Completion check: if catch-up mode and all posts processed, mark caughtUp
         if (!isCaughtUp && totalLikedThisRun < account.maxLikesPerRun) {
-          state[account.id].caughtUp[target] = true
-          saveState(account.stateFile, state)
+          state.caughtUp[target] = true
+          await saveState(account.id, state)
           log(`✅ [${account.id}] @${target} fully caught up!`)
         }
 
@@ -180,26 +175,31 @@ for (const arg of args) {
 
 const mode = (cliMode || process.env.MODE || 'all').toLowerCase()
 ;(async () => {
-  if (specificAccountId) {
-    const account = config.accounts.find(a => a.id === specificAccountId)
-    if (!account) {
-      log(`❌ Account "${specificAccountId}" not found in config`)
-      process.exit(1)
-    }
-    await processAccount(account, mode)
-    log(`🎉 Account ${specificAccountId} processed successfully!`)
-  } else {
-    for (let i = 0; i < config.accounts.length; i++) {
-      const account = config.accounts[i]
-      await processAccount(account, mode)
-
-      if (i < config.accounts.length - 1) {
-        const waitTime = config.delayBetweenAccounts / 1000
-        log(`⏳ Waiting ${waitTime} seconds before starting next account to avoid bans...`)
-        await new Promise(res => setTimeout(res, config.delayBetweenAccounts))
+  try {
+    if (specificAccountId) {
+      const account = config.accounts.find(a => a.id === specificAccountId)
+      if (!account) {
+        log(`❌ Account "${specificAccountId}" not found in config`)
+        process.exit(1)
       }
-    }
+      await processAccount(account, mode)
+      log(`🎉 Account ${specificAccountId} processed successfully!`)
+    } else {
+      for (let i = 0; i < config.accounts.length; i++) {
+        const account = config.accounts[i]
+        await processAccount(account, mode)
 
-    log(`🎉 All accounts processed successfully!`)
+        if (i < config.accounts.length - 1) {
+          const waitTime = config.delayBetweenAccounts / 1000
+          log(`⏳ Waiting ${waitTime} seconds before starting next account to avoid bans...`)
+          await new Promise(res => setTimeout(res, config.delayBetweenAccounts))
+        }
+      }
+
+      log(`🎉 All accounts processed successfully!`)
+    }
+  } finally {
+    const client = await getMongoClient()
+    await client.close()
   }
 })()

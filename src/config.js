@@ -4,7 +4,6 @@ module.exports = {
       id: 'ig_account_1',
       platform: 'instagram',
       authFile: 'auth_ig_1.json',
-      stateFile: 'db_instagram.json',
       targets: ['batikroebini', 'batik.roebinicatalog', 'pangestubatik'],
       maxLikesPerRun: 100
     },
@@ -12,7 +11,6 @@ module.exports = {
       id: 'ig_account_2',
       platform: 'instagram',
       authFile: 'auth_ig_2.json',
-      stateFile: 'db_instagram.json',
       targets: ['batikroebini', 'batik.roebinicatalog', 'pangestubatik'],
       maxLikesPerRun: 100
     }
