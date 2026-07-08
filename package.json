@@ -1,0 +1,19 @@
+{
+  "name": "auto-bot",
+  "version": "1.0.0",
+  "description": "State-driven Playwright bot to auto-like Instagram posts with anti-ban delays",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "save-auth": "node src/save-auth.js",
+    "setup": "npx playwright install --with-deps chromium"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "playwright": "^1.45.1"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.x"
+  }
+}

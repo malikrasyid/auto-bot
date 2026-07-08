@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# Sensitive session data
+auth.json
+auth_ig_*.json
+
+# Environment variables
+.env
+
+# OS files
+.DS_Store
